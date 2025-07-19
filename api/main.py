@@ -66,6 +66,29 @@ def load_menu() -> Dict[str, Any]:
     
     return MENU_CACHE  # Return the cached menu data
 
+@app.get("/menu/reload")
+async def reload_menu():
+    """
+    Force reload menu from file (bypass cache).
+    
+    Returns:
+        Freshly loaded menu data
+    """
+    global MENU_CACHE
+    
+    # Clear the cache
+    MENU_CACHE = None
+    
+    # Force reload
+    menu = load_menu()
+    
+    return {
+        "message": "Menu reloaded successfully",
+        "categories": list(menu["categories"].keys()),
+        "total_items": sum(len(items) for items in menu["categories"].values()),
+        "menu": menu
+    }
+
 # Data models for API requests and responses using Pydantic
 class OrderItem(BaseModel):
     """Model for individual items in an order"""
