@@ -1,6 +1,9 @@
 {
   "functions": {
-    "api/index.py": {
+    "api/main.py": {
+      "maxDuration": 10
+    },
+    "api/debug.py": {
       "maxDuration": 10
     }
   }
