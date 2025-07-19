@@ -4,11 +4,22 @@ from pathlib import Path  # Import Path to handle file paths
 from typing import Dict, Any, Optional  # Import type hints for better code documentation
 
 from fastapi import FastAPI, HTTPException  # Import FastAPI framework and HTTP exception handling
+from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware for cross-origin requests
 from pydantic import BaseModel  # Import Pydantic for data validation
 from upstash_redis import Redis  # Import Upstash Redis client
 
 # Create FastAPI application instance
 app = FastAPI(title="Restaurant Voice Agent API")
+
+# Add CORS middleware to allow requests from VAPI and other frontends
+# This is essential for voice assistant integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow requests from any origin (VAPI, web browsers, etc.)
+    allow_credentials=True,  # Allow cookies and authorization headers
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allow all headers in requests
+)
 
 # Initialize Redis client using environment variable for URL
 # This connects to Upstash Redis database for caching
