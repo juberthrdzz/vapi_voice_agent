@@ -202,7 +202,7 @@ async def create_order(order: Order):
     
     # Store order in Redis for persistence and retrieval
     # Convert order to JSON string for storage
-    await redis_client.set(
+    redis_client.set(
         f"order:{order_id}",
         order.json(),  # Serialize order data to JSON
         ex=86400  # Expire after 24 hours
@@ -231,7 +231,7 @@ async def get_order(order_id: str):
         HTTPException: If order not found
     """
     # Retrieve order from Redis
-    order_data = await redis_client.get(f"order:{order_id}")
+    order_data = redis_client.get(f"order:{order_id}")
     
     # Check if order exists
     if not order_data:
@@ -276,7 +276,7 @@ async def add_to_cart(cart_request: CartRequest):
     
     # Get current cart from Redis
     cart_key = f"cart:{cart_request.session_id}"
-    cart_data = await redis_client.get(cart_key)
+    cart_data = redis_client.get(cart_key)
     
     if cart_data:
         # Parse existing cart
@@ -305,7 +305,7 @@ async def add_to_cart(cart_request: CartRequest):
         })
     
     # Save updated cart to Redis (expire after 1 hour)
-    await redis_client.set(cart_key, json.dumps(cart_items), ex=3600)
+    redis_client.set(cart_key, json.dumps(cart_items), ex=3600)
     
     # Calculate cart summary
     total_items = sum(item["quantity"] for item in cart_items)
@@ -333,7 +333,7 @@ async def get_cart(session_id: str):
     """
     # Get cart from Redis
     cart_key = f"cart:{session_id}"
-    cart_data = await redis_client.get(cart_key)
+    cart_data = redis_client.get(cart_key)
     
     if not cart_data:
         return {
@@ -371,7 +371,7 @@ async def remove_from_cart(session_id: str, item_id: str):
     """
     # Get cart from Redis
     cart_key = f"cart:{session_id}"
-    cart_data = await redis_client.get(cart_key)
+    cart_data = redis_client.get(cart_key)
     
     if not cart_data:
         raise HTTPException(status_code=404, detail="Cart not found")
@@ -384,10 +384,10 @@ async def remove_from_cart(session_id: str, item_id: str):
     
     # Update cart in Redis
     if cart_items:
-        await redis_client.set(cart_key, json.dumps(cart_items), ex=3600)
+        redis_client.set(cart_key, json.dumps(cart_items), ex=3600)
     else:
         # Delete empty cart
-        await redis_client.delete(cart_key)
+        redis_client.delete(cart_key)
     
     # Calculate new totals
     total_items = sum(item["quantity"] for item in cart_items)
@@ -416,7 +416,7 @@ async def checkout_cart(session_id: str, customer_info: dict):
     """
     # Get cart from Redis
     cart_key = f"cart:{session_id}"
-    cart_data = await redis_client.get(cart_key)
+    cart_data = redis_client.get(cart_key)
     
     if not cart_data:
         raise HTTPException(status_code=404, detail="Cart is empty or not found")
@@ -460,14 +460,14 @@ async def checkout_cart(session_id: str, customer_info: dict):
     order_data["special_instructions"] = customer_info.get("special_instructions", "")
     
     # Store order in Redis
-    await redis_client.set(
+    redis_client.set(
         f"order:{order_id}",
         json.dumps(order_data),
         ex=86400  # Expire after 24 hours
     )
     
     # Clear the cart after successful checkout
-    await redis_client.delete(cart_key)
+    redis_client.delete(cart_key)
     
     # Return confirmation
     return {
