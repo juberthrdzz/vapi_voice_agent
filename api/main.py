@@ -67,6 +67,19 @@ class VoiceQuery(BaseModel):
     query: str  # The customer's spoken question or request
     session_id: str  # Unique session identifier for conversation tracking
 
+class CartItem(BaseModel):
+    """Model for items in the shopping cart"""
+    item_id: str  # ID of the menu item being added to cart
+    quantity: int = 1  # Number of this item to add (default 1)
+    special_requests: Optional[str] = None  # Special requests for this specific item
+
+class CartRequest(BaseModel):
+    """Model for adding items to cart"""
+    session_id: str  # Unique session identifier for the cart
+    item_id: str  # Menu item to add to cart
+    quantity: int = 1  # Number of items to add
+    special_requests: Optional[str] = None  # Optional special instructions
+
 @app.on_event("startup")
 async def startup_event():
     """
@@ -226,6 +239,244 @@ async def get_order(order_id: str):
     
     # Parse JSON data and return order details
     return {"order_id": order_id, "order_data": json.loads(order_data)}
+
+# ============= CART ENDPOINTS =============
+# These endpoints manage shopping cart functionality to avoid LLM memory issues
+
+@app.post("/cart/add")
+async def add_to_cart(cart_request: CartRequest):
+    """
+    Add an item to the shopping cart.
+    This prevents the LLM from having to remember all items until checkout.
+    
+    Args:
+        cart_request: Contains session_id, item_id, quantity, and special_requests
+        
+    Returns:
+        Success message with updated cart summary
+    """
+    # Validate that the menu item exists
+    menu = load_menu()
+    
+    # Find the item in the menu
+    item_found = False
+    item_details = None
+    
+    for category_name, category_items in menu["categories"].items():
+        for item in category_items:
+            if item["id"] == cart_request.item_id:
+                item_found = True
+                item_details = item
+                break
+        if item_found:
+            break
+    
+    if not item_found:
+        raise HTTPException(status_code=404, detail=f"Menu item {cart_request.item_id} not found")
+    
+    # Get current cart from Redis
+    cart_key = f"cart:{cart_request.session_id}"
+    cart_data = await redis_client.get(cart_key)
+    
+    if cart_data:
+        # Parse existing cart
+        cart_items = json.loads(cart_data)
+    else:
+        # Create new cart
+        cart_items = []
+    
+    # Check if item already exists in cart
+    item_exists = False
+    for i, existing_item in enumerate(cart_items):
+        if existing_item["item_id"] == cart_request.item_id:
+            # Update quantity of existing item
+            cart_items[i]["quantity"] += cart_request.quantity
+            item_exists = True
+            break
+    
+    if not item_exists:
+        # Add new item to cart
+        cart_items.append({
+            "item_id": cart_request.item_id,
+            "name": item_details["name"],
+            "price": item_details["price"],
+            "quantity": cart_request.quantity,
+            "special_requests": cart_request.special_requests
+        })
+    
+    # Save updated cart to Redis (expire after 1 hour)
+    await redis_client.set(cart_key, json.dumps(cart_items), ex=3600)
+    
+    # Calculate cart summary
+    total_items = sum(item["quantity"] for item in cart_items)
+    total_amount = sum(item["price"] * item["quantity"] for item in cart_items)
+    
+    return {
+        "message": f"Added {cart_request.quantity}x {item_details['name']} to cart",
+        "cart_summary": {
+            "total_items": total_items,
+            "total_amount": round(total_amount, 2),
+            "items_in_cart": len(cart_items)
+        }
+    }
+
+@app.get("/cart/{session_id}")
+async def get_cart(session_id: str):
+    """
+    Retrieve current cart contents for a session.
+    
+    Args:
+        session_id: Unique identifier for the cart session
+        
+    Returns:
+        Cart contents with items and totals
+    """
+    # Get cart from Redis
+    cart_key = f"cart:{session_id}"
+    cart_data = await redis_client.get(cart_key)
+    
+    if not cart_data:
+        return {
+            "session_id": session_id,
+            "items": [],
+            "total_items": 0,
+            "total_amount": 0.0
+        }
+    
+    # Parse cart data
+    cart_items = json.loads(cart_data)
+    
+    # Calculate totals
+    total_items = sum(item["quantity"] for item in cart_items)
+    total_amount = sum(item["price"] * item["quantity"] for item in cart_items)
+    
+    return {
+        "session_id": session_id,
+        "items": cart_items,
+        "total_items": total_items,
+        "total_amount": round(total_amount, 2)
+    }
+
+@app.delete("/cart/{session_id}/item/{item_id}")
+async def remove_from_cart(session_id: str, item_id: str):
+    """
+    Remove a specific item from the cart.
+    
+    Args:
+        session_id: Unique identifier for the cart session
+        item_id: ID of the menu item to remove
+        
+    Returns:
+        Success message with updated cart summary
+    """
+    # Get cart from Redis
+    cart_key = f"cart:{session_id}"
+    cart_data = await redis_client.get(cart_key)
+    
+    if not cart_data:
+        raise HTTPException(status_code=404, detail="Cart not found")
+    
+    # Parse cart data
+    cart_items = json.loads(cart_data)
+    
+    # Find and remove the item
+    cart_items = [item for item in cart_items if item["item_id"] != item_id]
+    
+    # Update cart in Redis
+    if cart_items:
+        await redis_client.set(cart_key, json.dumps(cart_items), ex=3600)
+    else:
+        # Delete empty cart
+        await redis_client.delete(cart_key)
+    
+    # Calculate new totals
+    total_items = sum(item["quantity"] for item in cart_items)
+    total_amount = sum(item["price"] * item["quantity"] for item in cart_items)
+    
+    return {
+        "message": f"Removed item {item_id} from cart",
+        "cart_summary": {
+            "total_items": total_items,
+            "total_amount": round(total_amount, 2),
+            "items_in_cart": len(cart_items)
+        }
+    }
+
+@app.post("/cart/{session_id}/checkout")
+async def checkout_cart(session_id: str, customer_info: dict):
+    """
+    Convert cart to order and process checkout.
+    
+    Args:
+        session_id: Unique identifier for the cart session
+        customer_info: Must contain customer_name and customer_phone
+        
+    Returns:
+        Order confirmation with order ID
+    """
+    # Get cart from Redis
+    cart_key = f"cart:{session_id}"
+    cart_data = await redis_client.get(cart_key)
+    
+    if not cart_data:
+        raise HTTPException(status_code=404, detail="Cart is empty or not found")
+    
+    # Parse cart data
+    cart_items = json.loads(cart_data)
+    
+    if not cart_items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+    
+    # Validate customer info
+    if "customer_name" not in customer_info or "customer_phone" not in customer_info:
+        raise HTTPException(status_code=400, detail="Customer name and phone are required")
+    
+    # Convert cart items to order format
+    order_items = []
+    total_amount = 0
+    
+    for cart_item in cart_items:
+        order_items.append({
+            "item_id": cart_item["item_id"],
+            "quantity": cart_item["quantity"],
+            "special_requests": cart_item.get("special_requests")
+        })
+        total_amount += cart_item["price"] * cart_item["quantity"]
+    
+    # Create order
+    order = Order(
+        customer_phone=customer_info["customer_phone"],
+        items=[OrderItem(**item) for item in order_items],
+        total_amount=round(total_amount, 2)
+    )
+    
+    # Generate order ID
+    import time
+    order_id = f"order_{int(time.time())}_{order.customer_phone[-4:]}"
+    
+    # Add customer name to order data
+    order_data = order.dict()
+    order_data["customer_name"] = customer_info["customer_name"]
+    order_data["special_instructions"] = customer_info.get("special_instructions", "")
+    
+    # Store order in Redis
+    await redis_client.set(
+        f"order:{order_id}",
+        json.dumps(order_data),
+        ex=86400  # Expire after 24 hours
+    )
+    
+    # Clear the cart after successful checkout
+    await redis_client.delete(cart_key)
+    
+    # Return confirmation
+    return {
+        "order_id": order_id,
+        "status": "confirmed",
+        "message": f"Order placed successfully! Your order ID is {order_id}",
+        "total_amount": round(total_amount, 2),
+        "estimated_time": "25-30 minutes"
+    }
 
 # Export the FastAPI app instance for Vercel deployment
 # Vercel automatically detects the 'app' variable
