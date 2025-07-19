@@ -1,0 +1,166 @@
+{
+  "categories": {
+    "empanadas": [
+      {
+        "id": "emp_carne_tradicional",
+        "name": "Empanada Carne Tradicional",
+        "description": "Empanada clásica de carne con especias tradicionales",
+        "price": 54
+      },
+      {
+        "id": "emp_carne_picante", 
+        "name": "Empanada Carne Picante",
+        "description": "Empanada de carne con chile y especias picantes",
+        "price": 54
+      },
+      {
+        "id": "emp_carne_dulce",
+        "name": "Empanada Carne Dulce", 
+        "description": "Empanada de carne con toque dulce de pasas",
+        "price": 54
+      },
+      {
+        "id": "emp_carne_queso",
+        "name": "Empanada Carne con Queso",
+        "description": "Empanada de carne con queso derretido",
+        "price": 54
+      },
+      {
+        "id": "emp_jamon_queso",
+        "name": "Empanada Jamón con Queso", 
+        "description": "Empanada de jamón y queso clásica",
+        "price": 54
+      },
+      {
+        "id": "emp_atun_queso",
+        "name": "Empanada Atún con Queso",
+        "description": "Empanada de atún con queso cremoso",
+        "price": 54
+      },
+      {
+        "id": "emp_acelga_queso",
+        "name": "Empanada Acelga con Queso",
+        "description": "Empanada vegetariana de acelga y queso",
+        "price": 54
+      },
+      {
+        "id": "emp_humita",
+        "name": "Empanada Humita",
+        "description": "Empanada dulce de choclo y especias",
+        "price": 54
+      },
+      {
+        "id": "emp_champi_queso",
+        "name": "Empanada Champiñones con Queso",
+        "description": "Empanada de champiñones frescos y queso",
+        "price": 54
+      },
+      {
+        "id": "emp_rajas_queso",
+        "name": "Empanada Rajas con Queso",
+        "description": "Empanada de rajas de chile poblano con queso",
+        "price": 54
+      },
+      {
+        "id": "emp_keto",
+        "name": "Empanada Keto",
+        "description": "Empanada especial baja en carbohidratos",
+        "price": 85
+      },
+      {
+        "id": "emp_eugenio",
+        "name": "Empanada Eugenio",
+        "description": "Empanada dulce especial de la casa",
+        "price": 30
+      }
+    ],
+    "combos": [
+      {
+        "id": "combo_con_todo",
+        "name": "Combo Con Todo",
+        "description": "2 empanadas + papas gauchas + refresco",
+        "price": 139
+      },
+      {
+        "id": "combo_goleador", 
+        "name": "Combo Goleador",
+        "description": "2 empanadas + ensalada chica + refresco",
+        "price": 173
+      },
+      {
+        "id": "6_empanadasx279",
+        "name": "6 Empanadas",
+        "description": "Paquete de 6 empanadas del sabor que elijas",
+        "price": 279
+      },
+      {
+        "id": "12x10empanadas",
+        "name": "12 Empanadas",
+        "description": "Docena de empanadas surtidas",
+        "price": 540
+      },
+      {
+        "id": "paquete_todo_reunion",
+        "name": "Paquete Todo Reunión",
+        "description": "24 empanadas + ensalada gaucha grande",
+        "price": 1199
+      }
+    ],
+    "ensaladas": [
+      {
+        "id": "ensalada_gaucha_chica",
+        "name": "Ensalada Gaucha Chica",
+        "description": "Ensalada fresca con vegetales de temporada",
+        "price": 69
+      },
+      {
+        "id": "ensalada_gaucha_mediana",
+        "name": "Ensalada Gaucha Mediana", 
+        "description": "Ensalada fresca con vegetales de temporada",
+        "price": 139
+      },
+      {
+        "id": "ensalada_gaucha_grande",
+        "name": "Ensalada Gaucha Grande",
+        "description": "Ensalada fresca con vegetales de temporada",
+        "price": 215
+      }
+    ],
+    "acompañamientos": [
+      {
+        "id": "papas_gauchas",
+        "name": "Papas Gauchas",
+        "description": "Papas fritas especiales de la casa",
+        "price": 60
+      }
+    ],
+    "postres": [
+      {
+        "id": "alfajores",
+        "name": "Alfajores",
+        "description": "Alfajores caseros tradicionales",
+        "price": 35
+      },
+      {
+        "id": "cheesecake_membrillo",
+        "name": "Cheesecake de Membrillo",
+        "description": "Cheesecake con dulce de membrillo",
+        "price": 45
+      },
+      {
+        "id": "tiramisu",
+        "name": "Tiramisú",
+        "description": "Postre italiano clásico",
+        "price": 59
+      }
+    ],
+    "otros": [
+      {
+        "id": "lasana",
+        "name": "Lasaña",
+        "description": "Lasaña tradicional con carne y queso",
+        "price": 145
+      }
+    ]
+  }
+} 

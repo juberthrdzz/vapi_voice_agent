@@ -1,0 +1,169 @@
+[
+  {
+    "name": "getFullMenuX",
+    "description": "Devuelve TODO el menú con todas las categorías disponibles",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "server": {
+      "url": "https://vapivoiceagent-qka8o83cy-juberths-projects.vercel.app/menu",
+      "method": "GET"
+    }
+  },
+  {
+    "name": "getMenuCategory", 
+    "description": "Devuelve los platillos de una categoría específica (appetizers, mains, desserts)",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "Categoría del menú a consultar"
+        }
+      },
+      "required": ["category"]
+    },
+    "server": {
+      "url": "https://vapivoiceagent-qka8o83cy-juberths-projects.vercel.app/menu/{{category}}",
+      "method": "GET"
+    }
+  },
+  {
+    "name": "addToCart",
+    "description": "Añade o incrementa un platillo al carrito del cliente",
+    "parameters": {
+      "type": "object", 
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "ID de sesión del cliente (usar call.id de VAPI)"
+        },
+        "item_id": {
+          "type": "string",
+          "description": "ID del item del menú a añadir"
+        },
+        "quantity": {
+          "type": "integer",
+          "description": "Cantidad del item a añadir",
+          "default": 1
+        },
+        "special_requests": {
+          "type": "string",
+          "description": "Peticiones especiales o notas para este item",
+          "default": null
+        }
+      },
+      "required": ["session_id", "item_id"]
+    },
+    "server": {
+      "url": "https://vapivoiceagent-qka8o83cy-juberths-projects.vercel.app/cart/add",
+      "method": "POST",
+      "body": {
+        "session_id": "{{session_id}}",
+        "item_id": "{{item_id}}",
+        "quantity": "{{quantity}}",
+        "special_requests": "{{special_requests}}"
+      }
+    }
+  },
+  {
+    "name": "getCartX",
+    "description": "Devuelve el carrito actual del cliente con todos los items y total",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "ID de sesión del cliente"
+        }
+      },
+      "required": ["session_id"]
+    },
+    "server": {
+      "url": "https://vapivoiceagent-qka8o83cy-juberths-projects.vercel.app/cart/{{session_id}}",
+      "method": "GET"
+    }
+  },
+  {
+    "name": "removeFromCart",
+    "description": "Elimina un ítem del carrito del cliente",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string", 
+          "description": "ID de sesión del cliente"
+        },
+        "item_id": {
+          "type": "string",
+          "description": "ID del item a eliminar del carrito"
+        }
+      },
+      "required": ["session_id", "item_id"]
+    },
+    "server": {
+      "url": "https://vapivoiceagent-qka8o83cy-juberths-projects.vercel.app/cart/remove",
+      "method": "POST",
+      "body": {
+        "session_id": "{{session_id}}",
+        "item_id": "{{item_id}}"
+      }
+    }
+  },
+  {
+    "name": "checkoutCart",
+    "description": "Confirma el pedido y crea la orden final. Envía automáticamente a Firebase.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "ID de sesión del cliente"
+        },
+        "customer_name": {
+          "type": "string", 
+          "description": "Nombre completo del cliente"
+        },
+        "customer_phone": {
+          "type": "string",
+          "description": "Teléfono del cliente"
+        },
+        "special_instructions": {
+          "type": "string",
+          "description": "Instrucciones especiales para toda la orden",
+          "default": ""
+        }
+      },
+      "required": ["session_id", "customer_name", "customer_phone"]
+    },
+    "server": {
+      "url": "https://vapivoiceagent-qka8o83cy-juberths-projects.vercel.app/cart/{{session_id}}/checkout",
+      "method": "POST", 
+      "body": {
+        "customer_name": "{{customer_name}}",
+        "customer_phone": "{{customer_phone}}",
+        "special_instructions": "{{special_instructions}}"
+      }
+    }
+  },
+  {
+    "name": "getOrder",
+    "description": "Consulta los detalles de una orden específica por su ID",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "description": "ID de la orden a consultar"
+        }
+      },
+      "required": ["order_id"]
+    },
+    "server": {
+      "url": "https://vapivoiceagent-qka8o83cy-juberths-projects.vercel.app/orders/{{order_id}}",
+      "method": "GET"
+    }
+  }
+] 

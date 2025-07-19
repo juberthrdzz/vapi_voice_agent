@@ -1,5 +1,7 @@
 import json  # Import JSON library to parse menu file
 import os  # Import OS library to access environment variables
+import logging  # Import logging for error tracking
+import requests  # Import requests for HTTP calls to external services
 from pathlib import Path  # Import Path to handle file paths
 from typing import Dict, Any, Optional  # Import type hints for better code documentation
 
@@ -7,6 +9,21 @@ from fastapi import FastAPI, HTTPException  # Import FastAPI framework and HTTP 
 from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware for cross-origin requests
 from pydantic import BaseModel  # Import Pydantic for data validation
 from upstash_redis import Redis  # Import Upstash Redis client
+
+# Conditionally import Firestore if credentials are available
+# This allows the app to run without Firebase configuration
+try:
+    if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        from google.cloud import firestore  # Import Firestore client for order storage
+        firestore_client = firestore.Client()  # Initialize Firestore client
+    else:
+        firestore_client = None  # No Firestore if no credentials
+except ImportError:
+    firestore_client = None  # Firestore not available
+
+# Configure logging for error tracking
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Create FastAPI application instance
 app = FastAPI(title="Restaurant Voice Agent API")
@@ -505,7 +522,37 @@ async def checkout_cart(session_id: str, customer_info: dict):
     # Clear the cart after successful checkout
     redis_client.delete(cart_key)
     
-    # Return confirmation
+    # ============= SEND ORDER TO FIREBASE =============
+    # After successful checkout, send order data to external Firebase server
+    
+    # Get metadata from Redis hash storage
+    metadata = get_cart_metadata(session_id)
+    
+    # Load menu for item name lookup
+    menu = load_menu()
+    
+    # Build human-readable platillos string using menu lookup
+    platillos_string = build_platillos_string(cart_items, menu)
+    
+    # Construct payload with Spanish keys as required
+    order_payload = {
+        # Required fields (marked with ✳ in requirements)
+        "nombre_cliente": metadata.get("nombre_cliente", customer_info.get("customer_name", "")),
+        "telefono": metadata.get("telefono", customer_info.get("customer_phone", "")),
+        "tipo_de_pedido": metadata.get("tipo_de_pedido", ""),  # pickup|delivery
+        "platillos": platillos_string,  # Human-readable string like "2 Empanadas carne, 1 Papas"
+        "precio_total": round(total_amount, 2),  # Numeric total price
+        # Optional fields
+        "metodo_pago": metadata.get("metodo_pago", ""),
+        "notas": metadata.get("notas", ""),
+        "direccion_cliente": metadata.get("direccion_cliente", ""),
+    }
+    
+    # Send order to Firebase server (async, non-blocking)
+    # Errors are logged but don't affect the customer response
+    await send_order_to_firebase(order_payload)
+    
+    # Return confirmation (unchanged response to maintain API compatibility)
     return {
         "order_id": order_id,
         "status": "confirmed",
@@ -548,7 +595,108 @@ async def remove_item(payload: RemovePayload):
     
     return {"ok": True}
 
-# Export the FastAPI app instance for Vercel deployment
-# Vercel automatically detects the 'app' variable
+# ============= ORDER SUBMISSION HELPERS =============
 
+def get_cart_metadata(session_id: str) -> Dict[str, str]:
+    """
+    Retrieve cart metadata from Redis hash storage.
+    
+    Args:
+        session_id: Unique session identifier for the cart
+        
+    Returns:
+        Dictionary with metadata fields (empty strings for missing values)
+    """
+    try:
+        # Get metadata hash from Redis using the pattern meta:{session_id}
+        meta_key = f"meta:{session_id}"
+        meta_data = redis_client.hgetall(meta_key)  # Get all hash fields
+        
+        # Convert bytes to strings and provide defaults for missing fields
+        return {
+            "nombre_cliente": meta_data.get("nombre_cliente", "").decode() if meta_data.get("nombre_cliente") else "",
+            "telefono": meta_data.get("telefono", "").decode() if meta_data.get("telefono") else "",
+            "tipo_de_pedido": meta_data.get("tipo_de_pedido", "").decode() if meta_data.get("tipo_de_pedido") else "",
+            "metodo_pago": meta_data.get("metodo_pago", "").decode() if meta_data.get("metodo_pago") else "",
+            "notas": meta_data.get("notas", "").decode() if meta_data.get("notas") else "",
+            "direccion_cliente": meta_data.get("direccion_cliente", "").decode() if meta_data.get("direccion_cliente") else "",
+        }
+    except Exception as e:
+        logger.warning(f"Error getting metadata for session {session_id}: {e}")
+        # Return empty strings for all fields if metadata retrieval fails
+        return {
+            "nombre_cliente": "",
+            "telefono": "",
+            "tipo_de_pedido": "",
+            "metodo_pago": "",
+            "notas": "",
+            "direccion_cliente": "",
+        }
+
+def build_platillos_string(cart_items: list, menu: Dict[str, Any]) -> str:
+    """
+    Build a human-readable string of ordered items using menu lookup.
+    
+    Args:
+        cart_items: List of items in the cart
+        menu: Menu data for name lookup
+        
+    Returns:
+        String like "2 Empanadas carne, 1 Papas"
+    """
+    # Create a lookup dictionary for fast item name retrieval
+    item_lookup = {}
+    for category_name, category_items in menu["categories"].items():
+        for item in category_items:
+            item_lookup[item["id"]] = item["name"]  # Map item_id to name
+    
+    # Build list of "quantity itemName" strings
+    platillo_parts = []
+    for cart_item in cart_items:
+        item_id = cart_item["item_id"]
+        quantity = cart_item["quantity"]
+        
+        # Get item name from lookup or use item_id as fallback
+        item_name = item_lookup.get(item_id, item_id)
+        platillo_parts.append(f"{quantity} {item_name}")
+    
+    # Join all items with comma and space
+    return ", ".join(platillo_parts)
+
+async def send_order_to_firebase(order_payload: Dict[str, Any]) -> bool:
+    """
+    Send order to external Firebase server.
+    
+    Args:
+        order_payload: Complete order data with Spanish keys
+        
+    Returns:
+        True if successful, False if failed (logged but not raised)
+    """
+    try:
+        # Get restaurant ID from environment variable or use default
+        restaurant_id = os.getenv("RESTAURANT_ID", "todoEmpanadas1")
+        order_payload["id_restaurante"] = restaurant_id
+        
+        # Send POST request to Firebase server with 3 second timeout
+        response = requests.post(
+            "https://vapi-firebase-server.fly.dev/create-order",
+            json=order_payload,
+            timeout=3  # 3 second timeout as specified
+        )
+        
+        # Log successful submission
+        logger.info(f"Order sent to Firebase - Status: {response.status_code}")
+        return True
+        
+    except requests.exceptions.Timeout:
+        # Log timeout but don't raise exception
+        logger.warning("Firebase order submission timed out after 3 seconds")
+        return False
+    except Exception as e:
+        # Log any other errors but don't raise exception
+        logger.error(f"Error sending order to Firebase: {e}")
+        return False
+
+# Export the FastAPI app instance for Vercel deployment
 # Vercel will automatically use the 'app' instance 
