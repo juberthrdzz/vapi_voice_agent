@@ -80,6 +80,11 @@ class CartRequest(BaseModel):
     quantity: int = 1  # Number of items to add
     special_requests: Optional[str] = None  # Optional special instructions
 
+class RemovePayload(BaseModel):
+    """Model for removing items from cart via POST"""
+    session_id: str  # Unique session identifier for the cart
+    item_id: str  # Menu item to remove from cart
+
 @app.on_event("startup")
 async def startup_event():
     """
@@ -134,6 +139,7 @@ async def get_menu():
     Returns:
         Complete menu with all categories and items
     """
+    print("🍽️  API CALL: getFullMenu executed")  # Debug log
     menu = load_menu()  # Get menu from cache
     return menu
 
@@ -151,6 +157,7 @@ async def get_menu_category(category: str):
     Raises:
         HTTPException: If category doesn't exist
     """
+    print(f"📋 API CALL: getMenuCategory - category: {category}")  # Debug log
     menu = load_menu()  # Get menu from cache
     
     # Check if the requested category exists in the menu
@@ -281,6 +288,7 @@ async def add_to_cart(cart_request: CartRequest):
     Returns:
         Success message with updated cart summary
     """
+    print(f"🛒 API CALL: addToCart - session: {cart_request.session_id}, item: {cart_request.item_id}, qty: {cart_request.quantity}")  # Debug log
     # Validate that the menu item exists
     menu = load_menu()
     
@@ -357,6 +365,7 @@ async def get_cart(session_id: str):
     Returns:
         Cart contents with items and totals
     """
+    print(f"👀 API CALL: getCart - session: {session_id}")  # Debug log
     # Get cart from Redis
     cart_key = f"cart:{session_id}"
     cart_data = redis_client.get(cart_key)
@@ -440,6 +449,7 @@ async def checkout_cart(session_id: str, customer_info: dict):
     Returns:
         Order confirmation with order ID
     """
+    print(f"💳 API CALL: checkoutCart - session: {session_id}, customer: {customer_info.get('customer_name', 'Unknown')}")  # Debug log
     # Get cart from Redis
     cart_key = f"cart:{session_id}"
     cart_data = redis_client.get(cart_key)
@@ -503,6 +513,40 @@ async def checkout_cart(session_id: str, customer_info: dict):
         "total_amount": round(total_amount, 2),
         "estimated_time": "25-30 minutes"
     }
+
+@app.post("/cart/remove")
+async def remove_item(payload: RemovePayload):
+    """
+    Remove one item from the user's cart (POST variant for Vapi).
+    
+    Args:
+        payload: Contains session_id and item_id to remove
+        
+    Returns:
+        Success confirmation
+    """
+    print(f"🗑️  API CALL: removeFromCart - session: {payload.session_id}, item: {payload.item_id}")  # Debug log
+    # Get cart from Redis
+    cart_key = f"cart:{payload.session_id}"
+    cart_data = redis_client.get(cart_key)
+    
+    if not cart_data:
+        return {"ok": True, "message": "Cart was already empty"}
+    
+    # Parse cart data
+    cart_items = json.loads(cart_data)
+    
+    # Remove the specified item
+    cart_items = [item for item in cart_items if item["item_id"] != payload.item_id]
+    
+    # Update cart in Redis
+    if cart_items:
+        redis_client.set(cart_key, json.dumps(cart_items), ex=3600)
+    else:
+        # Delete empty cart
+        redis_client.delete(cart_key)
+    
+    return {"ok": True}
 
 # Export the FastAPI app instance for Vercel deployment
 # Vercel automatically detects the 'app' variable
