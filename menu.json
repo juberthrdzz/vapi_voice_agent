@@ -1,0 +1,52 @@
+{
+  "categories": {
+    "appetizers": [
+      {
+        "id": "app1",
+        "name": "Bruschetta",
+        "description": "Toasted bread topped with fresh tomatoes, basil, and garlic",
+        "price": 8.99
+      },
+      {
+        "id": "app2", 
+        "name": "Calamari Rings",
+        "description": "Crispy fried squid rings served with marinara sauce",
+        "price": 12.99
+      }
+    ],
+    "mains": [
+      {
+        "id": "main1",
+        "name": "Grilled Salmon",
+        "description": "Atlantic salmon with lemon herbs and seasonal vegetables",
+        "price": 24.99
+      },
+      {
+        "id": "main2",
+        "name": "Ribeye Steak",
+        "description": "12oz prime ribeye with garlic mashed potatoes",
+        "price": 32.99
+      },
+      {
+        "id": "main3",
+        "name": "Chicken Parmesan",
+        "description": "Breaded chicken breast with marinara and mozzarella",
+        "price": 19.99
+      }
+    ],
+    "desserts": [
+      {
+        "id": "dess1",
+        "name": "Tiramisu",
+        "description": "Classic Italian coffee-flavored dessert",
+        "price": 7.99
+      },
+      {
+        "id": "dess2",
+        "name": "Chocolate Lava Cake",
+        "description": "Warm chocolate cake with molten center and vanilla ice cream",
+        "price": 8.99
+      }
+    ]
+  }
+} 
