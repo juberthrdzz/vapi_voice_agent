@@ -99,6 +99,32 @@ async def root():
     """
     return {"message": "Restaurant Voice Agent API is running"}
 
+@app.get("/redis-test")
+async def redis_test():
+    """
+    Test Redis connection.
+    
+    Returns:
+        Redis connection status
+    """
+    try:
+        # Test basic Redis operation
+        test_key = "test_connection"
+        redis_client.set(test_key, "working", ex=10)
+        result = redis_client.get(test_key)
+        
+        return {
+            "redis_status": "connected",
+            "test_result": result,
+            "message": "Redis is working correctly"
+        }
+    except Exception as e:
+        return {
+            "redis_status": "error",
+            "error": str(e),
+            "message": "Redis connection failed"
+        }
+
 @app.get("/menu")
 async def get_menu():
     """
