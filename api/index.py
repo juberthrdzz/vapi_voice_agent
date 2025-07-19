@@ -217,5 +217,4 @@ async def get_order(order_id: str):
     return {"order_id": order_id, "order_data": json.loads(order_data)}
 
 # Export the FastAPI app instance for Vercel deployment
-# Vercel looks for this variable to run the application
-handler = app 
+# Vercel automatically detects the 'app' variable 
